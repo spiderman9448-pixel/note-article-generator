@@ -213,6 +213,19 @@ body {
 }
 .btn-x { background: #000; color: #fff; }
 .btn-x:hover { background: #333; }
+
+/* Worry checkboxes */
+.worry-item {
+  display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px;
+  background: #fff; border-radius: 8px; margin-bottom: 6px; cursor: pointer;
+  border: 2px solid #e8e8e3; transition: all .2s;
+}
+.worry-item:hover { border-color: #aaa; }
+.worry-item.checked { border-color: #2d8659; background: #f0faf5; }
+.worry-item input[type="checkbox"] {
+  margin-top: 3px; flex-shrink: 0; width: 18px; height: 18px; accent-color: #2d8659;
+}
+.worry-item label { font-size: 0.85rem; line-height: 1.5; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -341,6 +354,13 @@ body {
       </div>
       <div class="step-body">
         <div class="step-output" id="output1"></div>
+        <div id="worrySelectUI" style="display:none">
+          <div style="font-size:0.8rem;color:#2d8659;font-weight:700;margin:12px 0 8px">3〜5個選んでください:</div>
+          <div id="worryCheckboxes"></div>
+          <button class="btn btn-primary" style="margin-top:10px" onclick="continueWithSelected()">
+            選んだ悩みで記事を作成 →
+          </button>
+        </div>
       </div>
     </div>
     <!-- Step 2 -->
@@ -627,10 +647,17 @@ async function startPipeline() {
 - 表面的でなく、本人が人に言えないような深い悩み（HARM：Hidden, Awkward, Real, Meaningful）を出す
 - 具体的で共感できるものにする
 - 番号付きリストで出力
-- 各悩みは1〜2文で簡潔に`,
+- 各悩みは1〜2文で簡潔に
+- セックスレス、性生活、夜の営みなど性的なテーマは除外する
+- 代わりに「会話がなくなった孤独」「一緒にいるのに一人に感じる」「このままでいいのかわからない」など精神的な距離感の悩みを入れる`,
       (text) => { document.getElementById('output1').textContent = text; }
     );
     setStepDone(1);
+
+    // Show worry selection UI
+    showWorrySelector(worries);
+    // Wait for user to select and click continue
+    const selectedWorries = await waitForWorrySelection();
 
     // === Step 2: 記事作成 ===
     setStepActive(2);
@@ -642,10 +669,10 @@ ${persona || '（未設定）'}
 
 この人格を自然に記事ににじませてください。押し付けがましくなく、読者が「この人の文章好きだな」と感じるように。`,
       isFree
-      ? `以下の悩みリストから1つ選び、共感を軸にした無料記事を書いてください。
+      ? `以下の悩みをもとに、共感を軸にした無料記事を書いてください。
 
-【悩みリスト】
-${worries}
+【悩みリスト（選択済み）】
+${selectedWorries}
 
 【執筆ルール】
 - ${length}文字程度（短く読みやすく）
@@ -656,10 +683,10 @@ ${worries}
 - 具体例やエピソードを1つ入れる
 - 最初の行に【タイトル】として記事タイトルを書く
 - 本文はその次の行から開始`
-      : `以下の悩みリストから特に深い悩みを3〜5個選び、それを解決する記事を書いてください。
+      : `以下の悩みをもとに、それを解決する記事を書いてください。
 
-【悩みリスト】
-${worries}
+【悩みリスト（選択済み）】
+${selectedWorries}
 
 【執筆ルール】
 - ${length}文字程度
@@ -890,6 +917,42 @@ function copyBody() {
 
 function openNote() {
   window.open('https://note.com/post', '_blank');
+}
+
+// === Worry Selection ===
+let worryResolve = null;
+
+function showWorrySelector(worriesText) {
+  const lines = worriesText.split('\n').filter(l => /^\d+[\.\)）]/.test(l.trim()));
+  const container = document.getElementById('worryCheckboxes');
+  container.innerHTML = lines.map((line, i) => {
+    const text = line.replace(/^\d+[\.\)）]\s*/, '').trim();
+    return `<div class="worry-item" onclick="toggleWorry(this)">
+      <input type="checkbox" id="worry${i}" value="${escapeHtml(text)}">
+      <label for="worry${i}">${escapeHtml(text)}</label>
+    </div>`;
+  }).join('');
+  document.getElementById('worrySelectUI').style.display = 'block';
+  document.getElementById('worrySelectUI').scrollIntoView({ behavior: 'smooth' });
+}
+
+function toggleWorry(el) {
+  const cb = el.querySelector('input[type="checkbox"]');
+  cb.checked = !cb.checked;
+  el.classList.toggle('checked', cb.checked);
+}
+
+function waitForWorrySelection() {
+  return new Promise(resolve => { worryResolve = resolve; });
+}
+
+function continueWithSelected() {
+  const checked = document.querySelectorAll('#worryCheckboxes input:checked');
+  if (checked.length === 0) { showToast('1つ以上選んでください'); return; }
+  if (checked.length > 5) { showToast('5個以下にしてください'); return; }
+  const selected = Array.from(checked).map((cb, i) => `${i+1}. ${cb.value}`).join('\n');
+  document.getElementById('worrySelectUI').style.display = 'none';
+  if (worryResolve) worryResolve(selected);
 }
 
 // === Toast ===
