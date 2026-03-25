@@ -308,8 +308,9 @@ body {
       </select>
     </div>
     <div class="field">
-      <label>ターゲット</label>
-      <input type="text" id="target" value="40代女性" placeholder="例: 40代女性">
+      <label>ターゲット読者像</label>
+      <textarea id="target" rows="4" placeholder="読者の具体的なプロフィール">40代女性、既婚、子なし、フリーランス。賃貸。株やiDeCoも勉強しながらやってはいるものの、将来や身体のことは不安。</textarea>
+      <div class="hint">具体的なほど記事の統一感が出ます</div>
     </div>
     <div class="field">
       <label>記事の文字数目安</label>
@@ -337,7 +338,10 @@ body {
 - 日常を豊かにすることを重視。高額な解決策より、毎日の暮らしの中でできる工夫を伝える
 - デジタルやツールで生活を楽にするのが得意。実用的なヒントを自然に盛り込む
 - 時間を大切にする。読者の時間を奪わない、簡潔で温かい文章を書く
-- ものづくりの精神。記事1本1本を「読者への贈り物」として丁寧に作る</textarea>
+- ものづくりの精神。記事1本1本を「読者への贈り物」として丁寧に作る
+- 断定しない。「〜じゃないかな」「〜な気がする」「〜かもしれない」のように、読者と同じ目線で一緒に考えるトーンで書く
+- 「〜してください」「〜しましょう」は使わない。「〜してみるのもいいかもしれない」「〜したら少し変わるかも」のように提案をそっと置く
+- 記事全体のトーンは暗くならない。悩みを受け止めつつも、読後に少し前を向ける温かさを必ず入れる。アイコンの明るさと一致させる</textarea>
       <div class="hint">原理原則シートの内容をここに追加していくと、記事に「あなたらしさ」が反映されます</div>
     </div>
     <button class="btn btn-secondary" onclick="saveSettings()">設定を保存</button>
@@ -361,8 +365,16 @@ body {
         <div id="worrySelectUI" style="display:none">
           <div style="font-size:0.8rem;color:#2d8659;font-weight:700;margin:12px 0 8px">3〜5個選んでください:</div>
           <div id="worryCheckboxes"></div>
-          <button class="btn btn-primary" style="margin-top:10px" onclick="continueWithSelected()">
-            選んだ悩みで記事を作成 →
+          <button class="btn btn-secondary" style="margin-top:10px" onclick="showWorryEditor()">
+            選んだ悩みを確認・編集 →
+          </button>
+        </div>
+        <div id="worryEditUI" style="display:none">
+          <div style="font-size:0.8rem;color:#2d8659;font-weight:700;margin:12px 0 8px">自由に編集できます（追加・削除・書き換えOK）:</div>
+          <textarea id="worryEditArea" rows="8" style="width:100%;padding:12px;border:2px solid #2d8659;border-radius:10px;font-size:0.85rem;line-height:1.7;font-family:inherit;background:#f0faf5;resize:vertical"></textarea>
+          <div style="font-size:0.7rem;color:#888;margin-top:4px">1行に1つの悩みを書いてください</div>
+          <button class="btn btn-primary" style="margin-top:10px" onclick="continueWithEdited()">
+            この内容で記事を作成 →
           </button>
         </div>
       </div>
@@ -659,15 +671,23 @@ async function startPipeline() {
     // === Step 1: 悩み出し ===
     setStepActive(1);
     const worries = await callClaude(
-      `あなたは${target}のリアルな悩みを深く理解するリサーチャーです。`,
-      `${target}が抱える${genre}を20個リストアップしてください。
+      `あなたは以下のターゲット読者のリアルな悩みを深く理解するリサーチャーです。
+
+【ターゲット読者像】
+${target}`,
+      `以下の読者像が抱える${genre}を20個リストアップしてください。
+
+【読者像】
+${target}
 
 ルール:
+- この読者像に矛盾しない悩みだけを出す（例:子なしなのに子育ての悩みを出さない、賃貸なのに持ち家の悩みを出さない）
 - 表面的でなく、本人が人に言えないような深い悩み（HARM：Hidden, Awkward, Real, Meaningful）を出す
 - 具体的で共感できるものにする
 - 番号付きリストで出力
 - 各悩みは1〜2文で簡潔に
 - セックスレス、性生活、夜の営みなど性的なテーマは除外する
+- 「モラハラ」「DV」「毒親」「共依存」等の強いラベルは使わない
 - 代わりに「会話がなくなった孤独」「一緒にいるのに一人に感じる」「このままでいいのかわからない」など精神的な距離感の悩みを入れる`,
       (text) => { document.getElementById('output1').textContent = text; }
     );
@@ -1046,6 +1066,26 @@ function toggleWorry(el) {
 
 function waitForWorrySelection() {
   return new Promise(resolve => { worryResolve = resolve; });
+}
+
+function showWorryEditor() {
+  const checked = document.querySelectorAll('#worryCheckboxes input:checked');
+  if (checked.length === 0) { showToast('1つ以上選んでください'); return; }
+  if (checked.length > 5) { showToast('5個以下にしてください'); return; }
+  const selected = Array.from(checked).map(cb => cb.value).join('\n');
+  document.getElementById('worryEditArea').value = selected;
+  document.getElementById('worrySelectUI').style.display = 'none';
+  document.getElementById('worryEditUI').style.display = 'block';
+  document.getElementById('worryEditUI').scrollIntoView({ behavior: 'smooth' });
+}
+
+function continueWithEdited() {
+  const text = document.getElementById('worryEditArea').value.trim();
+  if (!text) { showToast('悩みを入力してください'); return; }
+  const lines = text.split('\n').filter(l => l.trim());
+  const numbered = lines.map((l, i) => `${i+1}. ${l.trim()}`).join('\n');
+  document.getElementById('worryEditUI').style.display = 'none';
+  if (worryResolve) worryResolve(numbered);
 }
 
 function continueWithSelected() {
