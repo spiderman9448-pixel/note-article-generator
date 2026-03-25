@@ -312,6 +312,17 @@ body {
         <option value="980">980円</option>
       </select>
     </div>
+    <div class="field">
+      <label>ライター人格（あなたの原理原則）</label>
+      <textarea id="writerPersona" rows="8" placeholder="ここにあなたの価値観や信念を書き足せます">- 傾聴を大切にする。まず相手の話を最後まで聞く。解決策を急がない
+- 「あなたの気持ち、わかるよ」と上から言わない。「そう感じるのは自然なこと」と横に寄り添う
+- 即行動派。考えすぎるより「今日できる小さな一歩」を提案する
+- 日常を豊かにすることを重視。高額な解決策より、毎日の暮らしの中でできる工夫を伝える
+- デジタルやツールで生活を楽にするのが得意。実用的なヒントを自然に盛り込む
+- 時間を大切にする。読者の時間を奪わない、簡潔で温かい文章を書く
+- ものづくりの精神。記事1本1本を「読者への贈り物」として丁寧に作る</textarea>
+      <div class="hint">原理原則シートの内容をここに追加していくと、記事に「あなたらしさ」が反映されます</div>
+    </div>
     <button class="btn btn-secondary" onclick="saveSettings()">設定を保存</button>
   </details>
 
@@ -477,6 +488,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (s.target) document.getElementById('target').value = s.target;
     if (s.length) document.getElementById('lengthSelect').value = s.length;
     if (s.price) document.getElementById('priceSelect').value = s.price;
+    if (s.persona) document.getElementById('writerPersona').value = s.persona;
     if (s.genre) {
       const card = document.querySelector(`.genre-card[data-genre="${s.genre}"]`);
       if (card) selectGenre(card);
@@ -494,6 +506,7 @@ function saveSettings() {
     genre: selectedGenre,
     length: document.getElementById('lengthSelect').value,
     price: document.getElementById('priceSelect').value,
+    persona: document.getElementById('writerPersona').value,
   };
   localStorage.setItem('note-gen-settings', JSON.stringify(s));
   updateApiStatus();
@@ -586,6 +599,7 @@ async function startPipeline() {
   const writer = selectedWriter;
   const isFree = articleType === 'free';
   const length = isFree ? '1500' : document.getElementById('lengthSelect').value;
+  const persona = document.getElementById('writerPersona').value.trim();
 
   const btn = document.getElementById('generateBtn');
   btn.disabled = true;
@@ -621,7 +635,12 @@ async function startPipeline() {
     // === Step 2: 記事作成 ===
     setStepActive(2);
     const draft = await callClaude(
-      `あなたはnote.comで人気の${writer}です。${target}に寄り添う、温かみのある文章を書きます。`,
+      `あなたはnote.comで人気の${writer}です。${target}に寄り添う、温かみのある文章を書きます。
+
+【あなたの人格・大切にしていること】
+${persona || '（未設定）'}
+
+この人格を自然に記事ににじませてください。押し付けがましくなく、読者が「この人の文章好きだな」と感じるように。`,
       isFree
       ? `以下の悩みリストから1つ選び、共感を軸にした無料記事を書いてください。
 
@@ -662,7 +681,10 @@ ${worries}
     // === Step 3: 推敲 ===
     setStepActive(3);
     const final = await callClaude(
-      `あなたはプロの編集者です。AI臭さを消し、人間が書いたような自然な文章に仕上げます。`,
+      `あなたはプロの編集者です。AI臭さを消し、人間が書いたような自然な文章に仕上げます。
+このライターの人格を大切にしてください：
+${persona || '（未設定）'}
+偉そうな表現、上から目線の言い回しは絶対に使わないでください。読者と同じ目線で、横に寄り添うトーンを徹底してください。`,
       `以下の記事を推敲してください。
 
 【元の記事】
