@@ -145,6 +145,27 @@ body {
 /* Word count indicator */
 .word-count { font-size: 0.75rem; color: #888; text-align: right; margin-top: 4px; }
 
+/* Article Type Toggle */
+.type-toggle { display: flex; gap: 0; margin-bottom: 16px; border-radius: 12px; overflow: hidden; border: 2px solid #e8e8e3; }
+.type-btn {
+  flex: 1; padding: 14px 8px; border: none; background: #fff; cursor: pointer;
+  font-size: 0.9rem; font-weight: 700; font-family: inherit; transition: all .2s;
+  display: flex; flex-direction: column; align-items: center; gap: 4px; color: #888;
+}
+.type-btn.active-free { background: #2d8659; color: #fff; }
+.type-btn.active-paid { background: #c4a035; color: #fff; }
+.type-label { font-size: 0.7rem; font-weight: 400; opacity: 0.8; }
+
+/* Today's Schedule Banner */
+.schedule-banner {
+  background: linear-gradient(135deg, #2d8659 0%, #3da06e 100%);
+  color: #fff; border-radius: 14px; padding: 16px; margin-bottom: 16px;
+  box-shadow: 0 2px 8px rgba(45,134,89,0.3);
+}
+.schedule-banner .today-label { font-size: 0.7rem; opacity: 0.8; font-weight: 600; letter-spacing: 1px; }
+.schedule-banner .today-task { font-size: 1rem; font-weight: 700; margin-top: 4px; }
+.schedule-banner .today-detail { font-size: 0.8rem; opacity: 0.9; margin-top: 6px; line-height: 1.5; }
+
 /* Genre Selector */
 .genre-selector { margin-bottom: 16px; }
 .genre-selector h2 { font-size: 0.9rem; font-weight: 700; color: #555; margin-bottom: 10px; }
@@ -202,6 +223,21 @@ body {
 </div>
 
 <div class="container">
+  <!-- Today's Schedule -->
+  <div class="schedule-banner" id="scheduleBanner"></div>
+
+  <!-- Article Type Toggle -->
+  <div class="type-toggle">
+    <button class="type-btn active-free" id="btnFree" onclick="setArticleType('free')">
+      無料記事
+      <span class="type-label">共感・集客用 (1,500字)</span>
+    </button>
+    <button class="type-btn" id="btnPaid" onclick="setArticleType('paid')">
+      有料記事
+      <span class="type-label">解決策・収益用 (5,000字)</span>
+    </button>
+  </div>
+
   <!-- Genre Selector -->
   <div class="genre-selector">
     <h2>テーマを選んで生成</h2>
@@ -363,6 +399,65 @@ let generatedTitle = '';
 let generatedBody = '';
 let selectedGenre = '夫婦関係・パートナーシップの深い悩み';
 let selectedWriter = '恋愛・夫婦関係の専門ライター';
+let articleType = 'free'; // 'free' or 'paid'
+
+// === Weekly Schedule ===
+const SCHEDULE = [
+  { day: 0, type: 'rest', label: '休み', detail: '来週の計画を立てる。反応が良かったX投稿をメモ。', theme: null },
+  { day: 1, type: 'free', label: '無料記事（共感系）', detail: '悩みを言語化して「わかる！」を引き出す記事', theme: 0 },
+  { day: 2, type: 'free', label: '無料記事（体験談風）', detail: '「友人が〜」「相談を受けて〜」のストーリー形式', theme: 0 },
+  { day: 3, type: 'paid', label: '有料記事', detail: '今週テーマの解決策を深掘り。具体的な実践ノウハウ。', theme: 0 },
+  { day: 4, type: 'free', label: '無料記事（反応ネタ）', detail: 'X投稿で反応が良かったネタを記事化', theme: 1 },
+  { day: 5, type: 'free', label: '無料記事（気づきコラム）', detail: '軽めの読み物。日常の気づきから悩みに触れる', theme: 1 },
+  { day: 6, type: 'paid', label: '有料記事', detail: '週のまとめ的な実践ガイド。', theme: 2 },
+];
+const DAYS_JP = ['日', '月', '火', '水', '木', '金', '土'];
+const THEME_ROTATION = [
+  { week: 1, name: '夫婦関係', icon: '💔' },
+  { week: 2, name: 'お金・将来', icon: '💰' },
+  { week: 3, name: '自分らしさ', icon: '🪞' },
+  { week: 4, name: 'ミックス（反応が良いテーマ）', icon: '🔄' },
+];
+
+function showSchedule() {
+  const now = new Date();
+  const dayOfWeek = now.getDay();
+  const today = SCHEDULE[dayOfWeek];
+  const weekNum = Math.ceil(now.getDate() / 7);
+  const theme = THEME_ROTATION[(weekNum - 1) % 4];
+
+  const banner = document.getElementById('scheduleBanner');
+  if (today.type === 'rest') {
+    banner.innerHTML = `
+      <div class="today-label">${now.getMonth()+1}月${now.getDate()}日（${DAYS_JP[dayOfWeek]}）</div>
+      <div class="today-task">📅 ${today.label}</div>
+      <div class="today-detail">${today.detail}</div>
+    `;
+  } else {
+    banner.innerHTML = `
+      <div class="today-label">${now.getMonth()+1}月${now.getDate()}日（${DAYS_JP[dayOfWeek]}）｜第${weekNum}週テーマ: ${theme.icon} ${theme.name}</div>
+      <div class="today-task">${today.type === 'paid' ? '💰' : '📝'} 今日: ${today.label}</div>
+      <div class="today-detail">${today.detail}</div>
+    `;
+    // Auto-select article type
+    setArticleType(today.type, true);
+    // Auto-select genre based on theme index
+    if (today.theme !== null && weekNum <= 3) {
+      const cards = document.querySelectorAll('.genre-card');
+      if (cards[today.theme]) selectGenre(cards[today.theme]);
+    }
+  }
+}
+
+// === Article Type ===
+function setArticleType(type, noToast) {
+  articleType = type;
+  const btnFree = document.getElementById('btnFree');
+  const btnPaid = document.getElementById('btnPaid');
+  btnFree.className = type === 'free' ? 'type-btn active-free' : 'type-btn';
+  btnPaid.className = type === 'paid' ? 'type-btn active-paid' : 'type-btn';
+  if (!noToast) showToast(type === 'free' ? '無料記事モード' : '有料記事モード');
+}
 
 // === Genre Selection ===
 function selectGenre(el) {
@@ -388,6 +483,7 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   }
   updateApiStatus();
+  showSchedule();
 });
 
 function saveSettings() {
@@ -488,7 +584,8 @@ async function startPipeline() {
   const target = document.getElementById('target').value;
   const genre = selectedGenre;
   const writer = selectedWriter;
-  const length = document.getElementById('lengthSelect').value;
+  const isFree = articleType === 'free';
+  const length = isFree ? '1500' : document.getElementById('lengthSelect').value;
 
   const btn = document.getElementById('generateBtn');
   btn.disabled = true;
@@ -525,7 +622,22 @@ async function startPipeline() {
     setStepActive(2);
     const draft = await callClaude(
       `あなたはnote.comで人気の${writer}です。${target}に寄り添う、温かみのある文章を書きます。`,
-      `以下の悩みリストから特に深い悩みを3〜5個選び、それを解決する記事を書いてください。
+      isFree
+      ? `以下の悩みリストから1つ選び、共感を軸にした無料記事を書いてください。
+
+【悩みリスト】
+${worries}
+
+【執筆ルール】
+- ${length}文字程度（短く読みやすく）
+- 無料記事：読者に「この人わかってる」と思わせるのが目的
+- 構成: 共感する書き出し → 「あなただけじゃない」→ 小さなヒント1つ → 「もっと詳しくは有料記事で」への誘導
+- 解決策は深く書かない（入口だけ見せる）
+- 一人称は使わず「あなた」視点
+- 具体例やエピソードを1つ入れる
+- 最初の行に【タイトル】として記事タイトルを書く
+- 本文はその次の行から開始`
+      : `以下の悩みリストから特に深い悩みを3〜5個選び、それを解決する記事を書いてください。
 
 【悩みリスト】
 ${worries}
@@ -564,7 +676,7 @@ ${draft}
    - 一文を短くする（40文字以内が理想）
    - 漢字とひらがなのバランスを整える
    - 体言止めや倒置を適度に使う
-5. note記事として無料部分（冒頭30%）と有料部分（残り70%）の境目に「---ここから有料---」と入れる
+5. ${isFree ? '無料記事なので有料区切りは不要。最後に「もっと深く知りたい方は有料記事もどうぞ」と軽く誘導' : 'note記事として無料部分（冒頭30%）と有料部分（残り70%）の境目に「---ここから有料---」と入れる'}
 6. 最初の行は必ず【タイトル】として記事タイトルを書く
 7. 記事の最後に、この記事のハッシュタグ候補を5つ提案（#付き）
 
