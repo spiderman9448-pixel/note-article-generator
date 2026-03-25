@@ -728,8 +728,9 @@ ${draft}
 5. ${isFree ? '無料記事なので有料区切りは不要。最後に「もっと深く知りたい方は有料記事もどうぞ」と軽く誘導' : 'note記事として無料部分（冒頭30%）と有料部分（残り70%）の境目に「---ここから有料---」と入れる'}
 6. 最初の行は必ず【タイトル】として記事タイトルを書く
 7. 記事の最後に、この記事のハッシュタグ候補を5つ提案（#付き）
+8. Markdown記号（**太字**、##見出し、- リスト等）は絶対に使わない。プレーンテキストで出力する。見出しは改行と文字だけで表現する。
 
-そのまま掲載できる完成原稿を出力してください。`,
+そのままnoteに貼り付けできる完成原稿を出力してください。`,
       (text) => {
         document.getElementById('output3').textContent = text;
         document.getElementById('wordCount3').textContent = `${text.length.toLocaleString()}文字`;
@@ -906,13 +907,46 @@ function postToX(i) {
   window.open(`https://x.com/intent/tweet?text=${encoded}`, '_blank');
 }
 
+// === Markdown除去 ===
+function stripMarkdown(text) {
+  return text
+    .replace(/^#{1,6}\s+/gm, '')        // ## 見出し → 見出し
+    .replace(/\*\*(.+?)\*\*/g, '$1')     // **太字** → 太字
+    .replace(/\*(.+?)\*/g, '$1')         // *斜体* → 斜体
+    .replace(/__(.+?)__/g, '$1')         // __太字__ → 太字
+    .replace(/_(.+?)_/g, '$1')           // _斜体_ → 斜体
+    .replace(/~~(.+?)~~/g, '$1')         // ~~取消~~ → 取消
+    .replace(/`(.+?)`/g, '$1')           // `コード` → コード
+    .replace(/^[-*+]\s+/gm, '・')        // - リスト → ・リスト
+    .replace(/^\d+\.\s+/gm, '')          // 1. リスト → リスト
+    .replace(/^>\s+/gm, '')              // > 引用 → 引用
+    .replace(/\[(.+?)\]\(.+?\)/g, '$1')  // [text](url) → text
+    .replace(/^---+$/gm, '───')          // --- → ───
+    .replace(/【タイトル】/g, '')
+    .trim();
+}
+
 // === Copy & Open ===
 function copyTitle() {
-  navigator.clipboard.writeText(generatedTitle).then(() => showToast('タイトルをコピーしました'));
+  const t = stripMarkdown(generatedTitle);
+  navigator.clipboard.writeText(t).then(() => showToast('タイトルをコピーしました')).catch(() => fallbackCopy(t, 'タイトル'));
 }
 
 function copyBody() {
-  navigator.clipboard.writeText(generatedBody).then(() => showToast('本文をコピーしました'));
+  const b = stripMarkdown(generatedBody);
+  navigator.clipboard.writeText(b).then(() => showToast('本文をコピーしました')).catch(() => fallbackCopy(b, '本文'));
+}
+
+function fallbackCopy(text, label) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.left = '-9999px';
+  document.body.appendChild(ta);
+  ta.select();
+  document.execCommand('copy');
+  document.body.removeChild(ta);
+  showToast(label + 'をコピーしました');
 }
 
 function openNote() {
