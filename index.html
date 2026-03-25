@@ -761,7 +761,9 @@ ${draft}
     setStepActive(4);
     const xPosts = await callClaude(
       `あなたはX（Twitter）で${target}から圧倒的な共感を集めるインフルエンサーです。`,
-      `以下のnote記事の内容をもとに、Xの投稿文を5パターン作ってください。
+      `以下のnote記事の内容をもとに、X投稿を5パターン作ってください。
+
+【重要】Xのアルゴリズムは外部リンク付き投稿を表示しにくくするため、2投稿に分けます。
 
 【記事タイトル】
 ${generatedTitle || final.split('\n')[0]}
@@ -769,22 +771,33 @@ ${generatedTitle || final.split('\n')[0]}
 【記事の要約】
 ${final.substring(0, 1500)}
 
-【投稿文のルール】
-1. 各投稿は140文字以内（URLの分を除く）
-2. 記事の宣伝っぽくしない。あくまで「悩みへの共感」や「気づき」がメイン
-3. 最後にさりげなく記事へ誘導（「詳しくはこちら」等）
-4. 5パターンそれぞれ切り口を変える：
-   - パターン1: 共感型（「〜って思ったことありませんか？」）
-   - パターン2: 体験談風（「友人が〜と言っていて」）
-   - パターン3: 数字・データ型（「〇〇な人は〇%」）
-   - パターン4: 問いかけ型（「なぜ〜なのか」）
-   - パターン5: 名言・格言型（心に刺さるワンフレーズ）
-5. 各投稿の末尾に {URL} というプレースホルダーを入れる
-6. 出力形式：
+【各パターンの構成】
+A投稿（本体・リンクなし）:
+- 共感を集めるための投稿。記事リンクは絶対に入れない
+- 140文字以内
+- 読者が「わかる」「いいね」と思う内容だけ
+- 最後は余韻を残す終わり方にする（「…そんなことを思った夜でした」「ふとそう思った」等）。「わかる人いますか？」のような直接的な問いかけはしない。押し付けがましくなく、読者が自然と共感できるように
+
+B投稿（リプライ用・リンクあり）:
+- A投稿への自分のリプライとして投稿する文
+- 「このテーマについて記事を書きました」等の自然な誘導
+- 末尾に {URL} を入れる
+- 50文字以内で短く
+
+【5パターンの切り口】
+1. 共感型（「〜って思ったことありませんか？」）
+2. 体験談風（「友人が〜と言っていて」）
+3. 数字・データ型（「〇〇な人は〇%」）
+4. 問いかけ型（「なぜ〜なのか」）
+5. つぶやき型（短い独り言のような本音）
+
+【出力形式】
 ---投稿1---
-（本文）
+A: （本体テキスト）
+B: （リプライテキスト）{URL}
 ---投稿2---
-（本文）
+A: （本体テキスト）
+B: （リプライテキスト）{URL}
 ...のように区切る`,
       (text) => { document.getElementById('output4').textContent = text; }
     );
@@ -876,11 +889,30 @@ function showFinal(text, xPostsRaw) {
   }, 300);
 }
 
-// === X Posts ===
+// === X Posts (2投稿方式) ===
+let xPostPairs = []; // [{a: '本体', b: 'リプライ'}]
+
 function parseAndShowXPosts(raw) {
-  // Split by ---投稿N--- pattern
   const parts = raw.split(/---投稿\d+---/).filter(p => p.trim());
-  xPostTexts = parts.map(p => p.trim());
+  xPostPairs = parts.map(p => {
+    const lines = p.trim().split('\n');
+    let a = '', b = '';
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed.startsWith('A:') || trimmed.startsWith('A：')) {
+        a = trimmed.replace(/^A[:：]\s*/, '');
+      } else if (trimmed.startsWith('B:') || trimmed.startsWith('B：')) {
+        b = trimmed.replace(/^B[:：]\s*/, '');
+      } else if (a && !b) {
+        a += '\n' + trimmed;
+      } else if (b) {
+        b += '\n' + trimmed;
+      }
+    }
+    // Fallback: if parsing failed, use whole text as A
+    if (!a) { a = p.trim(); b = 'このテーマについて記事を書きました。{URL}'; }
+    return { a: a.trim(), b: b.trim() };
+  });
   renderXPosts();
   document.getElementById('xPostsCard').classList.add('show');
 }
@@ -888,42 +920,49 @@ function parseAndShowXPosts(raw) {
 function renderXPosts() {
   const url = document.getElementById('noteUrl').value.trim() || '{URL}';
   const list = document.getElementById('xPostsList');
-  list.innerHTML = xPostTexts.map((text, i) => {
-    const withUrl = text.replace(/\{URL\}/gi, url);
-    const charCount = withUrl.replace(url, '').length; // URL以外の文字数
-    const isOver = charCount > 140;
+  list.innerHTML = xPostPairs.map((pair, i) => {
+    const bWithUrl = pair.b.replace(/\{URL\}/gi, url);
     return `
       <div class="x-post">
         <div class="x-post-num">パターン${i + 1}</div>
-        <div class="x-post-text">${escapeHtml(withUrl)}</div>
-        <div class="x-post-chars ${isOver ? 'over' : ''}">${charCount}/140文字（URL除く）</div>
+        <div style="font-size:0.7rem;color:#2d8659;font-weight:700;margin-bottom:4px">1投稿目（本体・リンクなし）</div>
+        <div class="x-post-text">${escapeHtml(pair.a)}</div>
+        <div class="x-post-chars">${pair.a.length}/140文字</div>
         <div class="x-post-actions">
-          <button class="btn btn-copy" onclick="copyXPost(${i})" style="font-size:0.8rem;padding:8px 12px;width:auto">コピー</button>
-          <button class="btn btn-x" onclick="postToX(${i})" style="font-size:0.8rem;padding:8px 12px;width:auto">Xで投稿 →</button>
+          <button class="btn btn-copy" onclick="copyXA(${i})" style="font-size:0.8rem;padding:8px 12px;width:auto">コピー</button>
+          <button class="btn btn-x" onclick="postXA(${i})" style="font-size:0.8rem;padding:8px 12px;width:auto">Xで投稿 →</button>
+        </div>
+        <div style="font-size:0.7rem;color:#888;font-weight:700;margin:10px 0 4px">2投稿目（↑にリプライ）</div>
+        <div class="x-post-text" style="font-size:0.82rem;color:#666">${escapeHtml(bWithUrl)}</div>
+        <div class="x-post-actions">
+          <button class="btn btn-copy" onclick="copyXB(${i})" style="font-size:0.8rem;padding:8px 12px;width:auto">コピー</button>
         </div>
       </div>`;
   }).join('');
 }
 
 function updateXPosts() {
-  if (xPostTexts.length > 0) renderXPosts();
+  if (xPostPairs.length > 0) renderXPosts();
 }
 
 function escapeHtml(text) {
-  return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
 }
 
-function copyXPost(i) {
+function copyXA(i) {
+  const text = xPostPairs[i].a;
+  navigator.clipboard.writeText(text).then(() => showToast('1投稿目をコピーしました')).catch(() => fallbackCopy(text, '1投稿目'));
+}
+
+function copyXB(i) {
   const url = document.getElementById('noteUrl').value.trim() || '{URL}';
-  const text = xPostTexts[i].replace(/\{URL\}/gi, url);
-  navigator.clipboard.writeText(text).then(() => showToast('投稿文をコピーしました'));
+  const text = xPostPairs[i].b.replace(/\{URL\}/gi, url);
+  navigator.clipboard.writeText(text).then(() => showToast('2投稿目をコピーしました')).catch(() => fallbackCopy(text, '2投稿目'));
 }
 
-function postToX(i) {
-  const url = document.getElementById('noteUrl').value.trim() || '';
-  const text = xPostTexts[i].replace(/\{URL\}/gi, url);
-  const encoded = encodeURIComponent(text);
-  window.open(`https://x.com/intent/tweet?text=${encoded}`, '_blank');
+function postXA(i) {
+  const text = xPostPairs[i].a;
+  window.open(`https://x.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank');
 }
 
 // === Markdown除去 ===
