@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#2d8659">
+<title>note記事ジェネレーター</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', sans-serif;
+  background: #f5f5f0; color: #333; min-height: 100vh;
+  padding: 0 0 100px;
+}
+.header {
+  background: #2d8659; color: #fff; padding: 20px 16px 16px;
+  text-align: center; position: sticky; top: 0; z-index: 10;
+}
+.header h1 { font-size: 1.2rem; font-weight: 700; }
+.header .sub { font-size: 0.75rem; opacity: 0.8; margin-top: 4px; }
+
+.container { max-width: 640px; margin: 0 auto; padding: 16px; }
+
+/* Settings */
+.settings-card {
+  background: #fff; border-radius: 14px; padding: 18px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 16px;
+}
+.settings-card summary {
+  font-weight: 600; font-size: 0.95rem; cursor: pointer; color: #2d8659;
+  list-style: none; display: flex; align-items: center; gap: 8px;
+}
+.settings-card summary::before { content: "\u2699\uFE0F"; }
+.settings-card[open] summary { margin-bottom: 14px; }
+.field { margin-bottom: 14px; }
+.field label { display: block; font-size: 0.8rem; color: #888; margin-bottom: 6px; font-weight: 600; }
+.field input, .field textarea, .field select {
+  width: 100%; padding: 12px; border: 2px solid #e8e8e3; border-radius: 10px;
+  font-size: 0.95rem; background: #fafaf7; outline: none; transition: border .2s;
+  font-family: inherit;
+}
+.field input:focus, .field textarea:focus { border-color: #2d8659; }
+.field textarea { resize: vertical; min-height: 80px; }
+.field .hint { font-size: 0.7rem; color: #aaa; margin-top: 4px; }
+.api-status { display: inline-block; font-size: 0.75rem; padding: 2px 8px; border-radius: 6px; margin-left: 8px; }
+.api-ok { background: #e6f7ee; color: #2d8659; }
+.api-ng { background: #fde8e8; color: #d44; }
+
+/* Pipeline Steps */
+.pipeline { margin-top: 16px; }
+.step-card {
+  background: #fff; border-radius: 14px; padding: 18px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 12px;
+  border-left: 4px solid #ddd; transition: border-color .3s;
+}
+.step-card.active { border-left-color: #f0a030; }
+.step-card.done { border-left-color: #2d8659; }
+.step-card.error { border-left-color: #d44; }
+.step-header {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
+}
+.step-num {
+  width: 28px; height: 28px; border-radius: 50%; background: #e8e8e3;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.8rem; font-weight: 700; color: #888; flex-shrink: 0;
+}
+.step-card.active .step-num { background: #f0a030; color: #fff; }
+.step-card.done .step-num { background: #2d8659; color: #fff; }
+.step-card.done .step-num::after { content: "\u2713"; }
+.step-card.done .step-num span { display: none; }
+.step-title { font-weight: 600; font-size: 0.95rem; }
+.step-body { display: none; margin-top: 10px; }
+.step-card.active .step-body, .step-card.done .step-body { display: block; }
+.step-output {
+  background: #fafaf7; border-radius: 10px; padding: 14px;
+  font-size: 0.85rem; line-height: 1.7; white-space: pre-wrap;
+  max-height: 300px; overflow-y: auto; border: 1px solid #eee;
+}
+.step-output::-webkit-scrollbar { width: 4px; }
+.step-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2px; }
+
+/* Spinner */
+.spinner {
+  display: inline-block; width: 20px; height: 20px;
+  border: 3px solid #e8e8e3; border-top-color: #2d8659;
+  border-radius: 50%; animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Final Output */
+.final-card {
+  background: #fff; border-radius: 14px; padding: 20px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1); margin-top: 20px;
+  border: 2px solid #2d8659; display: none;
+}
+.final-card.show { display: block; }
+.final-title { font-size: 1.1rem; font-weight: 700; color: #2d8659; margin-bottom: 12px; }
+.final-content {
+  background: #fafaf7; border-radius: 10px; padding: 16px;
+  font-size: 0.9rem; line-height: 1.8; white-space: pre-wrap;
+  max-height: 500px; overflow-y: auto; border: 1px solid #e8e8e3;
+  -webkit-user-select: text; user-select: text;
+}
+
+/* Buttons */
+.btn {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; padding: 16px; border: none; border-radius: 12px;
+  font-size: 1rem; font-weight: 700; cursor: pointer; transition: all .2s;
+  font-family: inherit;
+}
+.btn-primary { background: #2d8659; color: #fff; }
+.btn-primary:hover { background: #246e49; }
+.btn-primary:disabled { background: #b8c9bf; cursor: not-allowed; }
+.btn-secondary { background: #e8e8e3; color: #555; margin-top: 10px; }
+.btn-secondary:hover { background: #ddd; }
+.btn-copy { background: #4a6fa5; color: #fff; margin-top: 10px; }
+.btn-copy:hover { background: #3a5f95; }
+.btn-note { background: #41c9b4; color: #fff; margin-top: 10px; }
+.btn-note:hover { background: #35b5a1; }
+
+.btn-row { display: flex; gap: 8px; margin-top: 10px; }
+.btn-row .btn { flex: 1; }
+
+/* Toast */
+.toast {
+  position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+  background: #333; color: #fff; padding: 12px 24px; border-radius: 10px;
+  font-size: 0.85rem; opacity: 0; transition: opacity .3s; z-index: 100;
+  pointer-events: none;
+}
+.toast.show { opacity: 1; }
+
+/* Stats */
+.stats {
+  display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;
+}
+.stat-chip {
+  background: #e6f7ee; color: #2d8659; padding: 4px 10px;
+  border-radius: 8px; font-size: 0.75rem; font-weight: 600;
+}
+
+/* Word count indicator */
+.word-count { font-size: 0.75rem; color: #888; text-align: right; margin-top: 4px; }
+
+/* Genre Selector */
+.genre-selector { margin-bottom: 16px; }
+.genre-selector h2 { font-size: 0.9rem; font-weight: 700; color: #555; margin-bottom: 10px; }
+.genre-grid { display: flex; flex-direction: column; gap: 8px; }
+.genre-card {
+  background: #fff; border-radius: 12px; padding: 14px 16px;
+  border: 2px solid #e8e8e3; cursor: pointer; transition: all .2s;
+  display: flex; align-items: center; gap: 12px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+.genre-card:hover { border-color: #aaa; }
+.genre-card.selected { border-color: #2d8659; background: #f0faf5; }
+.genre-icon { font-size: 1.5rem; flex-shrink: 0; width: 36px; text-align: center; }
+.genre-info { flex: 1; }
+.genre-name { font-weight: 700; font-size: 0.95rem; color: #333; }
+.genre-desc { font-size: 0.75rem; color: #888; margin-top: 2px; line-height: 1.4; }
+.genre-card.selected .genre-name { color: #2d8659; }
+.genre-check {
+  width: 22px; height: 22px; border-radius: 50%; border: 2px solid #ddd;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.7rem; color: #fff; flex-shrink: 0; transition: all .2s;
+}
+.genre-card.selected .genre-check { background: #2d8659; border-color: #2d8659; }
+.genre-card.selected .genre-check::after { content: "\u2713"; }
+
+/* X Posts */
+.x-post {
+  background: #fafaf7; border-radius: 10px; padding: 14px;
+  margin-bottom: 10px; border: 1px solid #e8e8e3; position: relative;
+}
+.x-post-num {
+  font-size: 0.7rem; font-weight: 700; color: #888; margin-bottom: 6px;
+}
+.x-post-text {
+  font-size: 0.88rem; line-height: 1.7; white-space: pre-wrap;
+  -webkit-user-select: text; user-select: text;
+}
+.x-post-chars {
+  font-size: 0.7rem; color: #aaa; text-align: right; margin-top: 6px;
+}
+.x-post-chars.over { color: #d44; font-weight: 600; }
+.x-post-actions { display: flex; gap: 6px; margin-top: 8px; }
+.x-post-actions .btn {
+  padding: 8px 12px; font-size: 0.8rem; width: auto; flex: none;
+}
+.btn-x { background: #000; color: #fff; }
+.btn-x:hover { background: #333; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>note Article Generator</h1>
+  <div class="sub">40代女性向け | 自動記事生成ツール</div>
+</div>
+
+<div class="container">
+  <!-- Genre Selector -->
+  <div class="genre-selector">
+    <h2>テーマを選んで生成</h2>
+    <div class="genre-grid" id="genreGrid">
+      <div class="genre-card selected" data-genre="夫婦関係・パートナーシップの深い悩み" data-writer="恋愛・夫婦関係の専門ライター" onclick="selectGenre(this)">
+        <div class="genre-icon">💔</div>
+        <div class="genre-info">
+          <div class="genre-name">夫婦関係・パートナーシップ</div>
+          <div class="genre-desc">セックスレス、会話がない、離婚の迷い…誰にも言えない悩み</div>
+        </div>
+        <div class="genre-check"></div>
+      </div>
+      <div class="genre-card" data-genre="お金・老後・将来設計の深い悩み" data-writer="マネー・ライフプランの専門ライター" onclick="selectGenre(this)">
+        <div class="genre-icon">💰</div>
+        <div class="genre-info">
+          <div class="genre-name">お金・老後の不安</div>
+          <div class="genre-desc">教育費と老後の板挟み、貯金ゼロの焦り、親の介護費用</div>
+        </div>
+        <div class="genre-check"></div>
+      </div>
+      <div class="genre-card" data-genre="自分らしさ・自己肯定感・アイデンティティの深い悩み" data-writer="自己啓発・メンタルケアの専門ライター" onclick="selectGenre(this)">
+        <div class="genre-icon">🪞</div>
+        <div class="genre-info">
+          <div class="genre-name">自分らしさ・自己肯定感</div>
+          <div class="genre-desc">「私の人生これでいいの？」、やりたいことがわからない焦り</div>
+        </div>
+        <div class="genre-check"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings -->
+  <details class="settings-card" id="settingsCard">
+    <summary>設定
+      <span class="api-status" id="apiStatus"></span>
+    </summary>
+    <div class="field">
+      <label>Claude API キー</label>
+      <input type="password" id="apiKey" placeholder="sk-ant-api03-...">
+      <div class="hint">
+        <a href="https://console.anthropic.com/settings/keys" target="_blank" style="color:#2d8659">
+          Anthropic Console</a> で取得できます
+      </div>
+    </div>
+    <div class="field">
+      <label>モデル</label>
+      <select id="modelSelect">
+        <option value="claude-sonnet-4-6-20250514">Claude Sonnet 4.6（推奨）</option>
+        <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5（最安・速い）</option>
+        <option value="claude-opus-4-6-20250610">Claude Opus 4.6（最高品質）</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>ターゲット</label>
+      <input type="text" id="target" value="40代女性" placeholder="例: 40代女性">
+    </div>
+    <div class="field">
+      <label>記事の文字数目安</label>
+      <select id="lengthSelect">
+        <option value="3000">3,000文字（読みやすい）</option>
+        <option value="5000" selected>5,000文字（標準）</option>
+        <option value="7000">7,000文字（しっかり）</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>note販売価格</label>
+      <select id="priceSelect">
+        <option value="0">無料</option>
+        <option value="100">100円</option>
+        <option value="300">300円</option>
+        <option value="500" selected>500円</option>
+        <option value="980">980円</option>
+      </select>
+    </div>
+    <button class="btn btn-secondary" onclick="saveSettings()">設定を保存</button>
+  </details>
+
+  <!-- Generate Button -->
+  <button class="btn btn-primary" id="generateBtn" onclick="startPipeline()">
+    記事を自動生成する
+  </button>
+
+  <!-- Pipeline -->
+  <div class="pipeline" id="pipeline" style="display:none">
+    <!-- Step 1 -->
+    <div class="step-card" id="step1">
+      <div class="step-header">
+        <div class="step-num"><span>1</span></div>
+        <div class="step-title">悩みを20個リストアップ</div>
+      </div>
+      <div class="step-body">
+        <div class="step-output" id="output1"></div>
+      </div>
+    </div>
+    <!-- Step 2 -->
+    <div class="step-card" id="step2">
+      <div class="step-header">
+        <div class="step-num"><span>2</span></div>
+        <div class="step-title">悩みを解決する記事を執筆</div>
+      </div>
+      <div class="step-body">
+        <div class="step-output" id="output2"></div>
+        <div class="word-count" id="wordCount2"></div>
+      </div>
+    </div>
+    <!-- Step 3 -->
+    <div class="step-card" id="step3">
+      <div class="step-header">
+        <div class="step-num"><span>3</span></div>
+        <div class="step-title">人間目線で推敲・仕上げ</div>
+      </div>
+      <div class="step-body">
+        <div class="step-output" id="output3"></div>
+        <div class="word-count" id="wordCount3"></div>
+      </div>
+    </div>
+    <!-- Step 4 -->
+    <div class="step-card" id="step4">
+      <div class="step-header">
+        <div class="step-num"><span>4</span></div>
+        <div class="step-title">X（Twitter）投稿文を生成</div>
+      </div>
+      <div class="step-body">
+        <div class="step-output" id="output4"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Final Output -->
+  <div class="final-card" id="finalCard">
+    <div class="final-title">完成記事</div>
+    <div class="stats" id="stats"></div>
+    <div class="final-content" id="finalContent"></div>
+    <div class="btn-row">
+      <button class="btn btn-copy" onclick="copyTitle()">タイトルをコピー</button>
+      <button class="btn btn-copy" onclick="copyBody()">本文をコピー</button>
+    </div>
+    <button class="btn btn-note" onclick="openNote()">
+      note.com で記事を作成 →
+    </button>
+  </div>
+
+  <!-- X Posts -->
+  <div class="final-card" id="xPostsCard">
+    <div class="final-title" style="color:#000">X 投稿文（5パターン）</div>
+    <div class="field" style="margin-bottom:12px">
+      <label>note記事のURL（貼り付け）</label>
+      <input type="text" id="noteUrl" placeholder="https://note.com/your_name/n/xxxxx" oninput="updateXPosts()">
+    </div>
+    <div id="xPostsList"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// === State ===
+let generatedTitle = '';
+let generatedBody = '';
+let selectedGenre = '夫婦関係・パートナーシップの深い悩み';
+let selectedWriter = '恋愛・夫婦関係の専門ライター';
+
+// === Genre Selection ===
+function selectGenre(el) {
+  document.querySelectorAll('.genre-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedGenre = el.dataset.genre;
+  selectedWriter = el.dataset.writer;
+}
+
+// === Init ===
+window.addEventListener('DOMContentLoaded', () => {
+  const saved = localStorage.getItem('note-gen-settings');
+  if (saved) {
+    const s = JSON.parse(saved);
+    if (s.apiKey) document.getElementById('apiKey').value = s.apiKey;
+    if (s.model) document.getElementById('modelSelect').value = s.model;
+    if (s.target) document.getElementById('target').value = s.target;
+    if (s.length) document.getElementById('lengthSelect').value = s.length;
+    if (s.price) document.getElementById('priceSelect').value = s.price;
+    if (s.genre) {
+      const card = document.querySelector(`.genre-card[data-genre="${s.genre}"]`);
+      if (card) selectGenre(card);
+    }
+  }
+  updateApiStatus();
+});
+
+function saveSettings() {
+  const s = {
+    apiKey: document.getElementById('apiKey').value.trim(),
+    model: document.getElementById('modelSelect').value,
+    target: document.getElementById('target').value,
+    genre: selectedGenre,
+    length: document.getElementById('lengthSelect').value,
+    price: document.getElementById('priceSelect').value,
+  };
+  localStorage.setItem('note-gen-settings', JSON.stringify(s));
+  updateApiStatus();
+  showToast('設定を保存しました');
+  document.getElementById('settingsCard').removeAttribute('open');
+}
+
+function updateApiStatus() {
+  const el = document.getElementById('apiStatus');
+  const key = document.getElementById('apiKey').value.trim();
+  if (key && key.startsWith('sk-')) {
+    el.textContent = '接続OK';
+    el.className = 'api-status api-ok';
+  } else if (key) {
+    el.textContent = 'キー形式エラー';
+    el.className = 'api-status api-ng';
+  } else {
+    el.textContent = '未設定';
+    el.className = 'api-status api-ng';
+  }
+}
+
+document.getElementById('apiKey').addEventListener('input', updateApiStatus);
+
+// === Claude API Call ===
+async function callClaude(systemPrompt, userPrompt, onChunk) {
+  const apiKey = document.getElementById('apiKey').value.trim();
+  const model = document.getElementById('modelSelect').value;
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: 8192,
+      stream: true,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userPrompt }],
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`API Error ${res.status}: ${err}`);
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let full = '';
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop();
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      const data = line.slice(6);
+      if (data === '[DONE]') continue;
+      try {
+        const j = JSON.parse(data);
+        if (j.type === 'content_block_delta' && j.delta?.text) {
+          full += j.delta.text;
+          if (onChunk) onChunk(full);
+        }
+      } catch {}
+    }
+  }
+  return full;
+}
+
+// === Pipeline ===
+async function startPipeline() {
+  const apiKey = document.getElementById('apiKey').value.trim();
+  if (!apiKey) {
+    showToast('APIキーを設定してください');
+    document.getElementById('settingsCard').setAttribute('open', '');
+    return;
+  }
+
+  const target = document.getElementById('target').value;
+  const genre = selectedGenre;
+  const writer = selectedWriter;
+  const length = document.getElementById('lengthSelect').value;
+
+  const btn = document.getElementById('generateBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div> 生成中...';
+
+  const pipeline = document.getElementById('pipeline');
+  pipeline.style.display = 'block';
+  document.getElementById('finalCard').classList.remove('show');
+
+  // Reset steps
+  for (let i = 1; i <= 4; i++) {
+    const step = document.getElementById(`step${i}`);
+    step.className = 'step-card';
+    document.getElementById(`output${i}`).textContent = '';
+  }
+
+  try {
+    // === Step 1: 悩み出し ===
+    setStepActive(1);
+    const worries = await callClaude(
+      `あなたは${target}のリアルな悩みを深く理解するリサーチャーです。`,
+      `${target}が抱える${genre}を20個リストアップしてください。
+
+ルール:
+- 表面的でなく、本人が人に言えないような深い悩み（HARM：Hidden, Awkward, Real, Meaningful）を出す
+- 具体的で共感できるものにする
+- 番号付きリストで出力
+- 各悩みは1〜2文で簡潔に`,
+      (text) => { document.getElementById('output1').textContent = text; }
+    );
+    setStepDone(1);
+
+    // === Step 2: 記事作成 ===
+    setStepActive(2);
+    const draft = await callClaude(
+      `あなたはnote.comで人気の${writer}です。${target}に寄り添う、温かみのある文章を書きます。`,
+      `以下の悩みリストから特に深い悩みを3〜5個選び、それを解決する記事を書いてください。
+
+【悩みリスト】
+${worries}
+
+【執筆ルール】
+- ${length}文字程度
+- noteの有料記事（500円）として価値のある内容
+- 構成: キャッチーなタイトル → 導入（共感）→ 本文（解決策3〜5個）→ まとめ
+- 一人称は使わず、読者に語りかける「あなた」視点
+- 専門用語は避け、わかりやすい言葉で
+- 具体例やエピソードを必ず入れる
+- 各セクションに見出しをつける
+- 最初の行に【タイトル】として記事タイトルを書く
+- 本文はその次の行から開始`,
+      (text) => {
+        document.getElementById('output2').textContent = text;
+        document.getElementById('wordCount2').textContent = `${text.length.toLocaleString()}文字`;
+      }
+    );
+    setStepDone(2);
+
+    // === Step 3: 推敲 ===
+    setStepActive(3);
+    const final = await callClaude(
+      `あなたはプロの編集者です。AI臭さを消し、人間が書いたような自然な文章に仕上げます。`,
+      `以下の記事を推敲してください。
+
+【元の記事】
+${draft}
+
+【推敲ルール】
+1. AI特有の表現を修正（「〜と言えるでしょう」「〜ではないでしょうか」等の多用を減らす）
+2. 具体例を1つ追加する（実在しそうなエピソード）
+3. 冒頭を読者が「自分のことだ」と思える書き出しに
+4. 読みやすくするために：
+   - 一文を短くする（40文字以内が理想）
+   - 漢字とひらがなのバランスを整える
+   - 体言止めや倒置を適度に使う
+5. note記事として無料部分（冒頭30%）と有料部分（残り70%）の境目に「---ここから有料---」と入れる
+6. 最初の行は必ず【タイトル】として記事タイトルを書く
+7. 記事の最後に、この記事のハッシュタグ候補を5つ提案（#付き）
+
+そのまま掲載できる完成原稿を出力してください。`,
+      (text) => {
+        document.getElementById('output3').textContent = text;
+        document.getElementById('wordCount3').textContent = `${text.length.toLocaleString()}文字`;
+      }
+    );
+    setStepDone(3);
+
+    // === Step 4: X投稿文生成 ===
+    setStepActive(4);
+    const xPosts = await callClaude(
+      `あなたはX（Twitter）で${target}から圧倒的な共感を集めるインフルエンサーです。`,
+      `以下のnote記事の内容をもとに、Xの投稿文を5パターン作ってください。
+
+【記事タイトル】
+${generatedTitle || final.split('\n')[0]}
+
+【記事の要約】
+${final.substring(0, 1500)}
+
+【投稿文のルール】
+1. 各投稿は140文字以内（URLの分を除く）
+2. 記事の宣伝っぽくしない。あくまで「悩みへの共感」や「気づき」がメイン
+3. 最後にさりげなく記事へ誘導（「詳しくはこちら」等）
+4. 5パターンそれぞれ切り口を変える：
+   - パターン1: 共感型（「〜って思ったことありませんか？」）
+   - パターン2: 体験談風（「友人が〜と言っていて」）
+   - パターン3: 数字・データ型（「〇〇な人は〇%」）
+   - パターン4: 問いかけ型（「なぜ〜なのか」）
+   - パターン5: 名言・格言型（心に刺さるワンフレーズ）
+5. 各投稿の末尾に {URL} というプレースホルダーを入れる
+6. 出力形式：
+---投稿1---
+（本文）
+---投稿2---
+（本文）
+...のように区切る`,
+      (text) => { document.getElementById('output4').textContent = text; }
+    );
+    setStepDone(4);
+
+    // === Show Final ===
+    showFinal(final, xPosts);
+
+  } catch (e) {
+    showToast('エラー: ' + e.message);
+    console.error(e);
+    // Mark current step as error
+    for (let i = 1; i <= 4; i++) {
+      if (document.getElementById(`step${i}`).classList.contains('active')) {
+        document.getElementById(`step${i}`).className = 'step-card error';
+      }
+    }
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '記事を自動生成する';
+  }
+}
+
+function setStepActive(n) {
+  document.getElementById(`step${n}`).className = 'step-card active';
+  document.getElementById(`output${n}`).innerHTML = '<div class="spinner"></div> 生成中...';
+}
+
+function setStepDone(n) {
+  document.getElementById(`step${n}`).className = 'step-card done';
+}
+
+let xPostTexts = [];
+
+function showFinal(text, xPostsRaw) {
+  // Parse title and body
+  const lines = text.split('\n');
+  let titleLine = '';
+  let bodyStart = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i].trim();
+    if (l.startsWith('【タイトル】')) {
+      titleLine = l.replace('【タイトル】', '').trim();
+      bodyStart = i + 1;
+      break;
+    }
+    // Also try lines that look like a title (first non-empty line with # or bold)
+    if (l && !titleLine) {
+      if (l.startsWith('#')) {
+        titleLine = l.replace(/^#+\s*/, '');
+        bodyStart = i + 1;
+        break;
+      }
+    }
+  }
+  if (!titleLine && lines.length > 0) {
+    titleLine = lines[0].trim();
+    bodyStart = 1;
+  }
+
+  generatedTitle = titleLine;
+  generatedBody = lines.slice(bodyStart).join('\n').trim();
+
+  // Find hashtags
+  const hashtagMatch = text.match(/#[^\s#]+/g);
+  const hashtags = hashtagMatch ? hashtagMatch.slice(0, 5) : [];
+
+  // Stats
+  const charCount = generatedBody.length;
+  const price = document.getElementById('priceSelect').value;
+  const statsEl = document.getElementById('stats');
+  statsEl.innerHTML = `
+    <span class="stat-chip">${charCount.toLocaleString()}文字</span>
+    <span class="stat-chip">${price === '0' ? '無料' : price + '円'}</span>
+    ${hashtags.map(t => `<span class="stat-chip">${t}</span>`).join('')}
+  `;
+
+  document.getElementById('finalContent').textContent = text;
+  document.getElementById('finalCard').classList.add('show');
+
+  // Parse X posts
+  if (xPostsRaw) {
+    parseAndShowXPosts(xPostsRaw);
+  }
+
+  // Scroll to final
+  setTimeout(() => {
+    document.getElementById('finalCard').scrollIntoView({ behavior: 'smooth' });
+  }, 300);
+}
+
+// === X Posts ===
+function parseAndShowXPosts(raw) {
+  // Split by ---投稿N--- pattern
+  const parts = raw.split(/---投稿\d+---/).filter(p => p.trim());
+  xPostTexts = parts.map(p => p.trim());
+  renderXPosts();
+  document.getElementById('xPostsCard').classList.add('show');
+}
+
+function renderXPosts() {
+  const url = document.getElementById('noteUrl').value.trim() || '{URL}';
+  const list = document.getElementById('xPostsList');
+  list.innerHTML = xPostTexts.map((text, i) => {
+    const withUrl = text.replace(/\{URL\}/gi, url);
+    const charCount = withUrl.replace(url, '').length; // URL以外の文字数
+    const isOver = charCount > 140;
+    return `
+      <div class="x-post">
+        <div class="x-post-num">パターン${i + 1}</div>
+        <div class="x-post-text">${escapeHtml(withUrl)}</div>
+        <div class="x-post-chars ${isOver ? 'over' : ''}">${charCount}/140文字（URL除く）</div>
+        <div class="x-post-actions">
+          <button class="btn btn-copy" onclick="copyXPost(${i})" style="font-size:0.8rem;padding:8px 12px;width:auto">コピー</button>
+          <button class="btn btn-x" onclick="postToX(${i})" style="font-size:0.8rem;padding:8px 12px;width:auto">Xで投稿 →</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function updateXPosts() {
+  if (xPostTexts.length > 0) renderXPosts();
+}
+
+function escapeHtml(text) {
+  return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function copyXPost(i) {
+  const url = document.getElementById('noteUrl').value.trim() || '{URL}';
+  const text = xPostTexts[i].replace(/\{URL\}/gi, url);
+  navigator.clipboard.writeText(text).then(() => showToast('投稿文をコピーしました'));
+}
+
+function postToX(i) {
+  const url = document.getElementById('noteUrl').value.trim() || '';
+  const text = xPostTexts[i].replace(/\{URL\}/gi, url);
+  const encoded = encodeURIComponent(text);
+  window.open(`https://x.com/intent/tweet?text=${encoded}`, '_blank');
+}
+
+// === Copy & Open ===
+function copyTitle() {
+  navigator.clipboard.writeText(generatedTitle).then(() => showToast('タイトルをコピーしました'));
+}
+
+function copyBody() {
+  navigator.clipboard.writeText(generatedBody).then(() => showToast('本文をコピーしました'));
+}
+
+function openNote() {
+  window.open('https://note.com/post', '_blank');
+}
+
+// === Toast ===
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+</script>
+</body>
+</html>
