@@ -236,7 +236,11 @@ body {
 </div>
 
 <div class="container">
-  <!-- Today's Schedule -->
+  <!-- Date Picker + Schedule -->
+  <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center">
+    <input type="date" id="targetDate" style="flex:1;padding:10px 12px;border:2px solid #e8e8e3;border-radius:10px;font-size:0.9rem;font-family:inherit;background:#fff" onchange="onDateChange()">
+    <button onclick="setToday()" style="padding:10px 14px;border:none;border-radius:10px;background:#2d8659;color:#fff;font-size:0.8rem;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">今日</button>
+  </div>
   <div class="schedule-banner" id="scheduleBanner"></div>
 
   <!-- Article Type Toggle -->
@@ -450,8 +454,23 @@ const THEME_ROTATION = [
   { week: 4, name: 'ミックス（反応が良いテーマ）', icon: '🔄' },
 ];
 
-function showSchedule() {
+function setToday() {
   const now = new Date();
+  document.getElementById('targetDate').value = now.toISOString().split('T')[0];
+  showSchedule();
+}
+
+function onDateChange() {
+  showSchedule();
+}
+
+function getTargetDate() {
+  const val = document.getElementById('targetDate').value;
+  return val ? new Date(val + 'T00:00:00') : new Date();
+}
+
+function showSchedule() {
+  const now = getTargetDate();
   const dayOfWeek = now.getDay();
   const today = SCHEDULE[dayOfWeek];
   const weekNum = Math.ceil(now.getDate() / 7);
@@ -515,7 +534,7 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   }
   updateApiStatus();
-  showSchedule();
+  setToday();
 });
 
 function saveSettings() {
