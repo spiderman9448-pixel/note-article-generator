@@ -317,7 +317,7 @@ body {
     </div>
     <div class="field">
       <label>ターゲット読者像</label>
-      <textarea id="target" rows="4" placeholder="読者の具体的なプロフィール">40代女性、既婚、子なし、フリーランス。賃貸。株やiDeCoも勉強しながらやってはいるものの、将来や身体のことは不安。</textarea>
+      <textarea id="target" rows="4" placeholder="読者の具体的なプロフィール">40代女性。フリーランス。賃貸。iDeCoや株はやっているが将来や身体のことは不安。家族構成は問わない。</textarea>
       <div class="hint">具体的なほど記事の統一感が出ます</div>
     </div>
     <div class="field">
@@ -433,6 +433,13 @@ body {
     <button class="btn btn-note" onclick="openNote()">
       note.com で記事を作成 →
     </button>
+
+    <!-- 修正リクエスト -->
+    <div style="margin-top:20px; padding-top:20px; border-top:2px solid #e0e0e0;">
+      <div style="font-weight:bold; font-size:16px; margin-bottom:8px;">✏️ 修正リクエスト</div>
+      <textarea id="revisionRequest" rows="3" placeholder="例：「3段落目がいらない」「最後の見出しを変えたい」「もっと軽い感じにして」" style="width:100%; padding:12px; border:2px solid #ddd; border-radius:8px; font-size:14px; resize:vertical;"></textarea>
+      <button class="btn" onclick="reviseArticle()" style="margin-top:8px; background:#FF8C00; width:100%;">修正して再生成</button>
+    </div>
   </div>
 
   <!-- X Posts -->
@@ -1006,6 +1013,77 @@ function showFinal(text, xPostsRaw) {
   setTimeout(() => {
     document.getElementById('finalCard').scrollIntoView({ behavior: 'smooth' });
   }, 300);
+}
+
+// === 修正リクエスト ===
+async function reviseArticle() {
+  const request = document.getElementById('revisionRequest').value.trim();
+  if (!request) {
+    showToast('修正内容を入力してください');
+    return;
+  }
+
+  const currentArticle = document.getElementById('finalContent').textContent;
+  if (!currentArticle) {
+    showToast('修正する記事がありません');
+    return;
+  }
+
+  const persona = document.getElementById('writerPersona').value;
+  const btn = document.querySelector('[onclick="reviseArticle()"]');
+  btn.textContent = '修正中...';
+  btn.disabled = true;
+
+  try {
+    const revised = await callClaude(
+      `あなたはプロの編集者です。「友達とカフェで話してるような明るい文章」を維持しつつ、指示通りに記事を修正します。
+りんのキャラクター：葛藤はあるけど明るく面白い人。話した後にスッキリする人。
+ライターの原理原則：
+${persona || '（未設定）'}`,
+      `以下の記事を、修正リクエストに従って修正してください。
+
+【現在の記事】
+${currentArticle}
+
+【修正リクエスト】
+${request}
+
+【ルール】
+- 修正リクエストの部分だけ変更し、それ以外はできるだけ変えない
+- りんの文体（くだけた口語体、です・ます禁止）を維持
+- 見出し行の先頭に「## 」を付ける
+- 最後のハッシュタグはそのまま残す（変更指示がない限り）
+- そのままnoteに貼り付けできる完成原稿を出力`,
+      null
+    );
+
+    // Update display
+    const text = revised;
+    document.getElementById('finalContent').textContent = text;
+
+    // Update stored values
+    const lines = text.split('\n');
+    const titleLine = lines.find(l => l.startsWith('【タイトル】'));
+    if (titleLine) {
+      generatedTitle = titleLine.replace('【タイトル】', '').trim();
+      generatedBody = lines.filter(l => !l.startsWith('【タイトル】')).join('\n').trim();
+    } else {
+      generatedTitle = lines[0] || '';
+      generatedBody = lines.slice(1).join('\n').trim();
+    }
+
+    // Update stats
+    const charCount = text.length;
+    document.getElementById('stats').innerHTML = `<span class="stat-chip">${charCount.toLocaleString()}文字</span><span class="stat-chip">修正済み ✅</span>`;
+
+    document.getElementById('revisionRequest').value = '';
+    showToast('修正完了！');
+  } catch(e) {
+    showToast('エラー: ' + e.message);
+  } finally {
+    btn.textContent = '修正して再生成';
+    btn.disabled = false;
+  }
 }
 
 // === X Posts (2投稿方式) ===
