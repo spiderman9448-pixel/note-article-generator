@@ -259,27 +259,27 @@ body {
   <div class="genre-selector">
     <h2>テーマを選んで生成</h2>
     <div class="genre-grid" id="genreGrid">
-      <div class="genre-card selected" data-genre="夫婦関係・パートナーシップの深い悩み" data-writer="恋愛・夫婦関係の専門ライター" onclick="selectGenre(this)">
-        <div class="genre-icon">💔</div>
+      <div class="genre-card selected" data-genre="心と人間関係の深い悩み" data-writer="人間関係・心のケアについて書くライター" onclick="selectGenre(this)">
+        <div class="genre-icon">🌙</div>
         <div class="genre-info">
-          <div class="genre-name">夫婦関係・パートナーシップ</div>
-          <div class="genre-desc">会話がない、心の距離感、離婚の迷い…誰にも言えない悩み</div>
+          <div class="genre-name">心と人間関係</div>
+          <div class="genre-desc">友人と会うのがしんどい、誰にも本音を言えない、親の老いへの心配</div>
         </div>
         <div class="genre-check"></div>
       </div>
-      <div class="genre-card" data-genre="お金・老後・将来設計の深い悩み" data-writer="マネー・ライフプランの専門ライター" onclick="selectGenre(this)">
+      <div class="genre-card" data-genre="お金・老後・将来設計の深い悩み" data-writer="お金と将来の不安について書くライター" onclick="selectGenre(this)">
         <div class="genre-icon">💰</div>
         <div class="genre-info">
-          <div class="genre-name">お金・老後の不安</div>
-          <div class="genre-desc">教育費と老後の板挟み、貯金ゼロの焦り、親の介護費用</div>
+          <div class="genre-name">お金・将来の不安</div>
+          <div class="genre-desc">iDeCo・株はやってるけど足りない不安、収入の不安定さ、老後が見えてきた焦り</div>
         </div>
         <div class="genre-check"></div>
       </div>
-      <div class="genre-card" data-genre="自分らしさ・自己肯定感・アイデンティティの深い悩み" data-writer="自己啓発・メンタルケアの専門ライター" onclick="selectGenre(this)">
+      <div class="genre-card" data-genre="自分らしさ・自己肯定感・アイデンティティの深い悩み" data-writer="自分らしさについて書くライター" onclick="selectGenre(this)">
         <div class="genre-icon">🪞</div>
         <div class="genre-info">
           <div class="genre-name">自分らしさ・自己肯定感</div>
-          <div class="genre-desc">「私の人生これでいいの？」、やりたいことがわからない焦り</div>
+          <div class="genre-desc">何かしたいけど何をしたらいいかわからない、不満はないのにモヤモヤする</div>
         </div>
         <div class="genre-check"></div>
       </div>
@@ -444,8 +444,8 @@ body {
 // === State ===
 let generatedTitle = '';
 let generatedBody = '';
-let selectedGenre = '夫婦関係・パートナーシップの深い悩み';
-let selectedWriter = '恋愛・夫婦関係の専門ライター';
+let selectedGenre = '心と人間関係の深い悩み';
+let selectedWriter = '人間関係・心のケアについて書くライター';
 let articleType = 'free'; // 'free' or 'paid'
 
 // === Weekly Schedule ===
